@@ -1,0 +1,121 @@
+{
+  "streams": [
+    {
+      "stream": {
+        "name": "projects",
+        "json_schema": {
+          "$schema": "http://json-schema.org/draft-04/schema#",
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "integer"
+            },
+            "name": {
+              "type": "string"
+            },
+            "announcement": {
+              "type": "string"
+            },
+            "show_announcement": {
+              "type": [
+                "null",
+                "boolean"
+              ]
+            },
+            "is_completed": {
+              "type": [
+                "null",
+                "boolean"
+              ]
+            },
+            "completed_on": {
+              "type": [
+                "null",
+                "string"
+              ]
+            },
+            "suite_mode": {
+              "type": "integer"
+            },
+            "default_role_id": {
+              "type": [
+                "null",
+                "integer"
+              ]
+            },
+            "url": {
+              "type": "string"
+            },
+            "users": {
+              "type": "array",
+              "items": [
+                {
+                  "type": "object",
+                  "properties": {
+                    "user_id": {
+                      "type": "integer"
+                    },
+                    "global_role_id": {
+                      "type": [
+                        "null",
+                        "integer"
+                      ]
+                    },
+                    "global_role": {
+                      "type": [
+                        "null",
+                        "string"
+                      ]
+                    },
+                    "project_role_id": {
+                      "type": [
+                        "null",
+                        "integer"
+                      ]
+                    },
+                    "project_role": {
+                      "type": [
+                        "null",
+                        "string"
+                      ]
+                    }
+                  }
+                }
+              ]
+            },
+            "groups": {
+              "type": "array",
+              "items": [
+                {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "integer"
+                    },
+                    "role_id": {
+                      "type": [
+                        "null",
+                        "integer"
+                      ]
+                    },
+                    "role": {
+                      "type": [
+                        "null",
+                        "string"
+                      ]
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        },
+        "supported_sync_modes": [
+          "full_refresh"
+        ]
+      },
+      "sync_mode": "full_refresh",
+      "destination_sync_mode": "overwrite"
+    }
+  ]
+}

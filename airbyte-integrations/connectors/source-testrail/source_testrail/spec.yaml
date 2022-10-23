@@ -1,0 +1,23 @@
+documentationUrl: https://docs.airbyte.io/integrations/sources/testrail
+connectionSpecification:
+  $schema: http://json-schema.org/draft-07/schema#
+  title: Testrail Spec
+  type: object
+  required:
+    - username
+    - password
+    - domain
+  properties:
+    # 'TODO: This schema defines the configuration required for the source. This usually involves metadata such as database and/or authentication information.':
+    username:
+      type: string
+      description: The username/ email address of the user to be used for the integration
+    password:
+      type: string
+      description: The API key or password to be used for the integration
+      airbyte_secret: true
+    domain  :
+      type: string
+      description: Your TestRail domain
+      examples:
+      - test.testrail.io
