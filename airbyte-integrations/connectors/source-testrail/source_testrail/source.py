@@ -4,6 +4,7 @@
 
 
 from abc import ABC
+import logging
 from typing import Any, Iterable, List, Mapping, MutableMapping, Optional, Tuple
 from urllib.parse import urljoin
 from requests.auth import HTTPBasicAuth
@@ -11,7 +12,7 @@ from requests.auth import HTTPBasicAuth
 import requests
 from airbyte_cdk.sources import AbstractSource
 from airbyte_cdk.sources.streams import Stream
-from airbyte_cdk.sources.streams.http import HttpStream
+from airbyte_cdk.sources.streams.http import HttpStream, HttpSubStream
 from airbyte_cdk.sources.streams.http.auth import TokenAuthenticator
 
 """
@@ -74,11 +75,7 @@ class TestrailStream(HttpStream, ABC):
         return {}
 
     def parse_response(self, response: requests.Response, **kwargs) -> Iterable[Mapping]:
-        """
-        TODO: Override this method to define how a response is parsed.
-        :return an iterable containing each record in the response
-        """
-        yield {}
+        return response.json()
 
     def path(self, *, stream_state: Mapping[str, Any] = None, stream_slice: Mapping[str, Any] = None, next_page_token: Mapping[str, Any] = None, data_obj: str = "") -> str:
         return self.testrail_slug + data_obj
@@ -86,6 +83,10 @@ class TestrailStream(HttpStream, ABC):
 
 class Projects(TestrailStream):
     primary_key = "customer_id"
+
+    @property
+    def use_cache(self) -> bool:
+        return True
 
     def path(
         self, stream_state: Mapping[str, Any] = None, stream_slice: Mapping[str, Any] = None, next_page_token: Mapping[str, Any] = None
@@ -99,6 +100,17 @@ class Projects(TestrailStream):
     
     def parse_response(self, response: requests.Response, **kwargs) -> Iterable[Mapping]:
         return response.json().get("projects")
+
+
+class Suites(HttpSubStream, TestrailStream):
+    primary_key = "id"
+
+    def __init__(self, authenticator, config: Mapping[str, Any], **kwargs):
+        super().__init__(authenticator=authenticator, config=config, parent=Projects(authenticator=authenticator, config=config, **kwargs))
+
+    def path(self, *, stream_state: Mapping[str, Any] = None, stream_slice: Mapping[str, Any] = None, next_page_token: Mapping[str, Any] = None) -> str:
+        data_obj = f"get_suites/{stream_slice['parent']['id']}"
+        return super().path(stream_state=stream_state, stream_slice=stream_slice, next_page_token=next_page_token, data_obj=data_obj)
 
 
 # Basic incremental stream
@@ -213,4 +225,4 @@ class SourceTestrail(AbstractSource):
         """
         # TODO remove the authenticator if not required.
         auth = TestRailAuth(config["username"], config["password"])
-        return [Projects(authenticator=auth, config=config)]
+        return [Projects(authenticator=auth, config=config), Suites(authenticator=auth, config=config)]
