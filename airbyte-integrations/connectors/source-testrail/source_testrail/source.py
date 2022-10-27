@@ -5,7 +5,7 @@
 
 from abc import ABC
 import logging
-from typing import Any, Iterable, List, Mapping, MutableMapping, Optional, Tuple
+from typing import Any, Dict, Iterable, List, Mapping, MutableMapping, Optional, Tuple
 from urllib.parse import urljoin
 from requests.auth import HTTPBasicAuth
 
@@ -50,20 +50,19 @@ class TestrailStream(HttpStream, ABC):
 
     def next_page_token(self, response: requests.Response) -> Optional[Mapping[str, Any]]:
         """
-        TODO: Override this method to define a pagination strategy. If you will not be using pagination, no action is required - just return None.
-
-        This method should return a Mapping (e.g: dict) containing whatever information required to make paginated requests. This dict is passed
-        to most other methods in this class to help you form headers, request bodies, query params, etc..
-
-        For example, if the API accepts a 'page' parameter to determine which page of the result to return, and a response from the API contains a
-        'page' number, then this method should probably return a dict {'page': response.json()['page'] + 1} to increment the page count by 1.
-        The request_params method should then read the input next_page_token and set the 'page' param to next_page_token['page'].
-
         :param response: the most recent response from the API
         :return If there is another page in the result, a mapping (e.g: dict) containing information needed to query the next page in the response.
                 If there are no more pages in the result, return None.
         """
-        return None
+        resp_payload = response.json()
+        if isinstance(resp_payload, Dict) and resp_payload.get("_links") and resp_payload.get("_links").get("next"):
+            next_page = {
+                "offset": int(resp_payload.get("offset")) + int(resp_payload.get("limit")),
+                "limit": resp_payload.get("limit")
+            }
+            return next_page
+        else:
+            return None
 
     def request_params(
         self, stream_state: Mapping[str, Any], stream_slice: Mapping[str, any] = None, next_page_token: Mapping[str, Any] = None
@@ -91,10 +90,7 @@ class Projects(TestrailStream):
     def path(
         self, stream_state: Mapping[str, Any] = None, stream_slice: Mapping[str, Any] = None, next_page_token: Mapping[str, Any] = None
     ) -> str:
-        """
-        TODO: Override this method to define the path this stream corresponds to. E.g. if the url is https://example-api.com/v1/customers then this
-        should return "customers". Required.
-        """
+
         data_obj = "get_projects"
         return super().path(data_obj=data_obj, stream_state=stream_state, stream_slice=stream_slice, next_page_token=stream_slice)
     
@@ -104,6 +100,10 @@ class Projects(TestrailStream):
 
 class Suites(HttpSubStream, TestrailStream):
     primary_key = "id"
+
+    @property
+    def use_cache(self) -> bool:
+        return True
 
     def __init__(self, authenticator, config: Mapping[str, Any], **kwargs):
         super().__init__(authenticator=authenticator, config=config, parent=Projects(authenticator=authenticator, config=config, **kwargs))
@@ -141,6 +141,35 @@ class IncrementalTestrailStream(TestrailStream, ABC):
         """
         return {}
 
+
+# class Cases(IncrementalTestrailStream):
+class Cases(HttpSubStream, TestrailStream):
+    primary_key = "id"
+    cursor_field = "updated_on"
+
+    def __init__(self, authenticator, config: Mapping[str, Any], **kwargs):
+        super().__init__(authenticator=authenticator, config=config, parent=Suites(authenticator=authenticator, config=config, **kwargs))
+
+    def path(self, *, stream_state: Mapping[str, Any] = None, stream_slice: Mapping[str, Any] = None, next_page_token: Mapping[str, Any] = None) -> str:
+        #/index.php?/api/v2/get_cases/3&suite_id=56&updated_after=1661588325
+        # data_obj = f"get_cases/{stream_slice['parent']['project_id']}&suite_id={stream_slice['parent']['id']}&updated_after=1661588325"
+        data_obj = f"get_cases/{stream_slice['parent']['project_id']}&suite_id={stream_slice['parent']['id']}"
+        if next_page_token:
+            data_obj += f"&limit={next_page_token.get('limit')}&offset={next_page_token.get('offset')}"
+        return f"{self.testrail_slug}{data_obj}"
+
+    def parse_response(self, response: requests.Response, **kwargs) -> Iterable[Mapping]:
+        case_objs = []
+        resp_obj: List[Mapping[str, Any]] = response.json().get("cases")
+        for case in resp_obj:
+            case_obj = {"custom_fields": {}}
+            for key in case.keys():
+                if key.startswith("custom_"):
+                    case_obj["custom_fields"][key] = case.get(key)
+                else:
+                    case_obj[key] = case.get(key)
+            case_objs.append(case_obj)
+        return case_objs
 
 class Employees(IncrementalTestrailStream):
     """
@@ -225,4 +254,8 @@ class SourceTestrail(AbstractSource):
         """
         # TODO remove the authenticator if not required.
         auth = TestRailAuth(config["username"], config["password"])
-        return [Projects(authenticator=auth, config=config), Suites(authenticator=auth, config=config)]
+        return [
+            Projects(authenticator=auth, config=config),
+            Suites(authenticator=auth, config=config),
+            Cases(authenticator=auth, config=config)
+        ]

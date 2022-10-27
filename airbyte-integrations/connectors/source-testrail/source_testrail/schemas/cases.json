@@ -1,0 +1,60 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "properties": {
+    "id": {
+      "type": "integer"
+    },
+    "title": {
+      "type": "string"
+    },
+    "section_id": {
+      "type": "integer"
+    },
+    "template_id": {
+      "type": "integer"
+    },
+    "type_id": {
+      "type": "integer"
+    },
+    "priority_id": {
+      "type": "integer"
+    },
+    "milestone_id": {
+      "type": ["integer","null"]
+    },
+    "refs": {
+      "type": ["string", "null"]
+    },
+    "created_by": {
+      "type": "integer"
+    },
+    "created_on": {
+      "type": "integer"
+    },
+    "updated_by": {
+      "type": "integer"
+    },
+    "updated_on": {
+      "type": "integer"
+    },
+    "estimate": {
+      "type": ["string", "null"]
+    },
+    "estimate_forecast": {
+      "type": ["string", "null"]
+    },
+    "suite_id": {
+      "type": "integer"
+    },
+    "display_order": {
+      "type": "integer"
+    },
+    "is_deleted": {
+      "type": "integer"
+    },
+    "custom_fields": {
+      "type": "object"
+    }
+  }
+}
