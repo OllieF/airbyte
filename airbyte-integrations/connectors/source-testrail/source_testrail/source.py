@@ -10,10 +10,10 @@ from urllib.parse import urljoin
 from requests.auth import HTTPBasicAuth
 
 import requests
+from airbyte_cdk.models import SyncMode
 from airbyte_cdk.sources import AbstractSource
 from airbyte_cdk.sources.streams import Stream
 from airbyte_cdk.sources.streams.http import HttpStream, HttpSubStream
-from airbyte_cdk.sources.streams.http.auth import TokenAuthenticator
 
 """
 TODO: Most comments in this class are instructive and should be deleted after the source is implemented.
@@ -121,7 +121,7 @@ class IncrementalTestrailStream(TestrailStream, ABC):
     """
 
     # TODO: Fill in to checkpoint stream reads after N records. This prevents re-reading of data if the stream fails for any reason.
-    state_checkpoint_interval = None
+    state_checkpoint_interval = 100
 
     @property
     def cursor_field(self) -> str:
@@ -143,17 +143,27 @@ class IncrementalTestrailStream(TestrailStream, ABC):
 
 
 # class Cases(IncrementalTestrailStream):
-class Cases(HttpSubStream, TestrailStream):
+class Cases(HttpSubStream, IncrementalTestrailStream):
     primary_key = "id"
     cursor_field = "updated_on"
+    start_date = 1262307661
 
     def __init__(self, authenticator, config: Mapping[str, Any], **kwargs):
         super().__init__(authenticator=authenticator, config=config, parent=Suites(authenticator=authenticator, config=config, **kwargs))
+        self._cursor_value = self.start_date
+
+    @property
+    def state(self) -> MutableMapping[str, Any]:
+        return {self.cursor_field: self._cursor_value} if self._cursor_value else {}
+
+    @state.setter
+    def state(self, value: MutableMapping[str, Any]):
+        self._cursor_value = value.get(self.cursor_field, self.start_date)
 
     def path(self, *, stream_state: Mapping[str, Any] = None, stream_slice: Mapping[str, Any] = None, next_page_token: Mapping[str, Any] = None) -> str:
         #/index.php?/api/v2/get_cases/3&suite_id=56&updated_after=1661588325
-        # data_obj = f"get_cases/{stream_slice['parent']['project_id']}&suite_id={stream_slice['parent']['id']}&updated_after=1661588325"
-        data_obj = f"get_cases/{stream_slice['parent']['project_id']}&suite_id={stream_slice['parent']['id']}"
+        data_obj = f"get_cases/{stream_slice['parent']['project_id']}&suite_id={stream_slice['parent']['id']}&updated_after={self.state.get(self.cursor_field)}"
+        # data_obj = f"get_cases/{stream_slice['parent']['project_id']}&suite_id={stream_slice['parent']['id']}"
         if next_page_token:
             data_obj += f"&limit={next_page_token.get('limit')}&offset={next_page_token.get('offset')}"
         return f"{self.testrail_slug}{data_obj}"
@@ -170,6 +180,21 @@ class Cases(HttpSubStream, TestrailStream):
                     case_obj[key] = case.get(key)
             case_objs.append(case_obj)
         return case_objs
+
+    def read_records(
+        self,
+        sync_mode: SyncMode,
+        cursor_field: List[str] = None,
+        stream_slice: Mapping[str, Any] = None,
+        stream_state: Mapping[str, Any] = None,
+    ) -> Iterable[Mapping[str, Any]]:
+        for record in super().read_records(
+            sync_mode=sync_mode, cursor_field=cursor_field, stream_slice=stream_slice, stream_state=stream_state
+        ):
+            yield record
+            self._cursor_value = max(record[self.cursor_field], self._cursor_value)
+
+
 
 class Employees(IncrementalTestrailStream):
     """
