@@ -1,19 +1,18 @@
-#
-# Copyright (c) 2022 Airbyte, Inc., all rights reserved.
-#
-
-
 from abc import ABC
 import logging
-from typing import Any, Dict, Iterable, List, Mapping, MutableMapping, Optional, Tuple
+from typing import Any, Dict, Iterable, List, Mapping, MutableMapping, Optional, Tuple, Iterator
 from urllib.parse import urljoin
 from requests.auth import HTTPBasicAuth
 
 import requests
-from airbyte_cdk.models import SyncMode
+from airbyte_cdk.models import SyncMode, ConfiguredAirbyteStream, AirbyteMessage
+from airbyte_cdk.models import Type as MessageType
 from airbyte_cdk.sources import AbstractSource
 from airbyte_cdk.sources.streams import Stream
 from airbyte_cdk.sources.streams.http import HttpStream, HttpSubStream
+from airbyte_cdk.sources.connector_state_manager import ConnectorStateManager
+from airbyte_cdk.sources.utils.schema_helpers import InternalConfig
+
 
 """
 TODO: Most comments in this class are instructive and should be deleted after the source is implemented.
@@ -151,6 +150,7 @@ class Cases(HttpSubStream, IncrementalTestrailStream):
     def __init__(self, authenticator, config: Mapping[str, Any], **kwargs):
         super().__init__(authenticator=authenticator, config=config, parent=Suites(authenticator=authenticator, config=config, **kwargs))
         self._cursor_value = self.start_date
+        self.latest_updated_date = self.start_date
 
     @property
     def state(self) -> MutableMapping[str, Any]:
@@ -192,7 +192,7 @@ class Cases(HttpSubStream, IncrementalTestrailStream):
             sync_mode=sync_mode, cursor_field=cursor_field, stream_slice=stream_slice, stream_state=stream_state
         ):
             yield record
-            self._cursor_value = max(record[self.cursor_field], self._cursor_value)
+            self.latest_updated_date = max(record[self.cursor_field], self.latest_updated_date)
 
 
 
@@ -284,3 +284,58 @@ class SourceTestrail(AbstractSource):
             Suites(authenticator=auth, config=config),
             Cases(authenticator=auth, config=config)
         ]
+
+    def _read_stream(
+        self,
+        logger: logging.Logger,
+        stream_instance: Stream,
+        configured_stream: ConfiguredAirbyteStream,
+        state_manager: ConnectorStateManager,
+        internal_config: InternalConfig,
+    ) -> Iterator[AirbyteMessage]:
+        self._apply_log_level_to_stream_logger(logger, stream_instance)
+        if internal_config.page_size and isinstance(stream_instance, HttpStream):
+            logger.info(f"Setting page size for {stream_instance.name} to {internal_config.page_size}")
+            stream_instance.page_size = internal_config.page_size
+        logger.debug(
+            f"Syncing configured stream: {configured_stream.stream.name}",
+            extra={
+                "sync_mode": configured_stream.sync_mode,
+                "primary_key": configured_stream.primary_key,
+                "cursor_field": configured_stream.cursor_field,
+            },
+        )
+        logger.debug(
+            f"Syncing stream instance: {stream_instance.name}",
+            extra={
+                "primary_key": stream_instance.primary_key,
+                "cursor_field": stream_instance.cursor_field,
+            },
+        )
+
+        use_incremental = configured_stream.sync_mode == SyncMode.incremental and stream_instance.supports_incremental
+        if use_incremental:
+            record_iterator = self._read_incremental(
+                logger,
+                stream_instance,
+                configured_stream,
+                state_manager,
+                internal_config,
+            )
+        else:
+            record_iterator = self._read_full_refresh(logger, stream_instance, configured_stream, internal_config)
+
+        record_counter = 0
+        stream_name = configured_stream.stream.name
+        logger.info(f"Syncing stream: {stream_name} ")
+        for record in record_iterator:
+            if record.type == MessageType.RECORD:
+                record_counter += 1
+            yield record
+
+
+        if stream_instance.name == "cases":
+            state_manager.update_state_for_stream(stream_instance.name, stream_instance.namespace, {stream_instance.cursor_field: stream_instance.latest_updated_date})
+            message = state_manager.create_state_message(stream_instance.name, stream_instance.namespace, True)
+            logger.info(message)
+        logger.info(f"Read {record_counter} records from {stream_name} stream")
