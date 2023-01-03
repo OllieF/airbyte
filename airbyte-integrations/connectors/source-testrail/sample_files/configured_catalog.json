@@ -229,6 +229,83 @@
       },
       "sync_mode": "incremental",
       "destination_sync_mode": "overwrite"
+    },
+    {
+      "stream": {
+        "name": "users",
+        "json_schema": {
+          "$schema": "http://json-schema.org/draft-04/schema#",
+          "type": "object",
+          "properties": {
+            "name": {
+                "type": "string"
+            },
+            "id": {
+                "type": "integer"
+            },
+            "email": {
+                "type": "string"
+            },
+            "is_active": {
+                "type": "boolean"
+            },
+            "role_id": {
+                "type": "integer"
+            },
+            "is_admin": {
+                "type": "boolean"
+            },
+            "email_notifications": {
+                "type": "boolean"
+            },
+            "mfa_required": {
+                "type": "integer"
+            },
+            "role": {
+                "type": "string"
+            },
+            "group_ids": {
+                "type": "array",
+                "items": {
+                    "type": "integer"
+                }
+            }
+          }
+        },
+        "supported_sync_modes": [
+          "full_refresh"
+        ]
+      },
+      "sync_mode": "full_refresh",
+      "destination_sync_mode": "overwrite"
+    },
+    {
+      "stream": {
+        "name": "groups",
+        "json_schema": {
+          "$schema": "http://json-schema.org/draft-04/schema#",
+          "type": "object",
+          "properties": {
+            "name": {
+                "type": "string"
+            },
+            "id": {
+                "type": "integer"
+            },
+            "user_ids": {
+                "type": "array",
+                "items": {
+                    "type": "integer"
+                }
+            }
+          }
+        },
+        "supported_sync_modes": [
+          "full_refresh"
+        ]
+      },
+      "sync_mode": "full_refresh",
+      "destination_sync_mode": "overwrite"
     }
   ]
 }
