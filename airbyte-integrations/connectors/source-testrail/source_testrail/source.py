@@ -9,7 +9,8 @@ from source_testrail.streams import (
     Suites,
     Cases,
     Users,
-    Groups
+    Groups,
+    Statuses
 )
 
 import requests
@@ -70,7 +71,8 @@ class SourceTestrail(AbstractSource):
             Suites(**kwargs),
             Cases(**kwargs),
             Users(**kwargs),
-            Groups(**kwargs)
+            Groups(**kwargs),
+            Statuses(**kwargs)
         ]
 
     def _read_stream(

@@ -111,6 +111,13 @@ class Groups(TestrailStream):
         return response.json().get("groups")
 
 
+class Statuses(TestrailStream):
+
+    def path(self, *, stream_state: Mapping[str, Any] = None, stream_slice: Mapping[str, Any] = None, next_page_token: Mapping[str, Any] = None, data_obj: str = "") -> str:
+        data_obj = "get_statuses"
+        return super().path(stream_state=stream_state, stream_slice=stream_slice, next_page_token=next_page_token, data_obj=data_obj)
+
+
 # Basic incremental stream
 class IncrementalTestrailStream(TestrailStream, ABC):
     """

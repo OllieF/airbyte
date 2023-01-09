@@ -306,6 +306,47 @@
       },
       "sync_mode": "full_refresh",
       "destination_sync_mode": "overwrite"
+    },
+    {
+      "name": "statuses",
+      "json_schema": {
+        "$schema": "http://json-schema.org/draft-04/schema#",
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer"
+          },
+          "name": {
+            "type": "string"
+          },
+          "label": {
+            "type": "string"
+          },
+          "color_dark": {
+            "type": "integer"
+          },
+          "color_medium": {
+            "type": "integer"
+          },
+          "color_bright": {
+            "type": "integer"
+          },
+          "is_system": {
+            "type": "boolean"
+          },
+          "is_untested": {
+            "type": "boolean"
+          },
+          "is_final": {
+            "type": "boolean"
+          }
+        }
+      },
+      "supported_sync_modes": [
+        "full_refresh"
+      ],
+      "sync_mode": "full_refresh",
+      "destination_sync_mode": "overwrite"
     }
   ]
 }
